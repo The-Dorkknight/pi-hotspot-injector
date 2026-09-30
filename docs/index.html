@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pi Hotspot Injector</title>
+<meta name="description" content="Point-and-click Linux tool that turns an SD card into a Klipper 3D-printer controller with its own Wi-Fi hotspot. Source-available · Non-commercial.">
+<link rel="icon" href="images/favicon-64.png">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<style>
+:root{--bg:#f6f8fb;--fg:#1c2b4a;--muted:#4a5568;--card:#fff;--line:#d9e0ea;--accent:#2b6cb0;--warn:#c53030}
+@media (prefers-color-scheme:dark){:root{--bg:#10192b;--fg:#e8eef8;--muted:#a9b6cc;--card:#182540;--line:#2a3a5c;--accent:#7fb2ee;--warn:#ff8a8a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+header.hero{padding:48px 0 24px;text-align:center}
+header.hero img.icon{width:96px;height:96px;border-radius:22px}
+h1{font-size:2.1rem;margin:12px 0 4px}
+.tag{color:var(--muted);max-width:640px;margin:0 auto 18px}
+.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 12px;font-size:.85rem;color:var(--muted);background:var(--card)}
+.btn{display:inline-block;margin:6px 4px;padding:10px 20px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600}
+.btn.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.shot{display:block;margin:28px auto 0;max-width:100%;height:auto;border-radius:10px;border:1px solid var(--line)}
+section{padding:26px 0}
+h2{font-size:1.4rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{margin:0 0 6px;font-size:1.05rem}
+.card p{margin:0;color:var(--muted);font-size:.95rem}
+ol li{margin:6px 0}
+code{background:var(--card);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.92em}
+pre{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.note{border-left:4px solid var(--warn);background:var(--card);padding:12px 16px;border-radius:0 8px 8px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.shots img{width:100%;height:auto;border-radius:8px;border:1px solid var(--line)}
+#hardware[hidden]{display:none}
+footer{padding:28px 0 48px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <img class="icon" src="images/icon-512.png" alt="Pi Hotspot Injector icon">
+  <h1>Pi Hotspot Injector</h1>
+  <p class="tag">Turn a blank SD card into a <b>Klipper 3D-printer controller</b> that broadcasts its own Wi-Fi hotspot, from your Linux PC, with no keyboard or screen on the Pi.</p>
+  <p><span class="badge">Source-available · Non-commercial</span> <span class="badge">Linux desktop</span> <span class="badge">Pi 1 to Pi 5</span></p>
+  <p><a class="btn" id="dl" href="https://github.com/The-Dorkknight/pi-hotspot-injector/releases/latest">Download</a>
+     <a class="btn alt" id="repo" href="https://github.com/The-Dorkknight/pi-hotspot-injector">View on GitHub</a></p>
+  <img class="shot" src="images/build-klipper.png" alt="The Build Klipper tab" width="700">
+</header>
+
+<section>
+  <h2>What it does</h2>
+  <div class="grid">
+    <div class="card"><h3>1. Write the image</h3><p>Downloads the official Raspberry Pi OS Lite, checks it, and writes it to an 8–32 GB SD card or USB stick, with two sanity checks and read-back verification.</p></div>
+    <div class="card"><h3>2. Build Klipper</h3><p>Installs Klipper, Moonraker, Mainsail (and Crowsnest for a webcam) onto the card, compiled so one card runs on every Pi, even the Pi Zero.</p></div>
+    <div class="card"><h3>3. Hotspot</h3><p>Sets the Wi-Fi name, password and address, so the Pi makes its own network on first start. Ideal for a workshop with no Wi-Fi.</p></div>
+    <div class="card"><h3>Clone &amp; Backup</h3><p>Save a finished card as an image and copy it to more cards. Each copy becomes a separate Pi with its own name and keys.</p></div>
+    <div class="card"><h3>Dropout-proof downloads</h3><p>10 MB checkpoints and automatic resume, so flaky Wi-Fi doesn't cost you an hour.</p></div>
+    <div class="card"><h3>Safety first</h3><p>Only removable 8–32 GB drives are offered. Your PC's own disks can never be picked.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Install</h2>
+  <ol>
+    <li>On a Linux PC (Ubuntu, Linux Mint, Debian, Fedora…) make sure Tkinter is installed: <code>sudo apt install python3-tk</code></li>
+    <li>Download the project from <a class="gh-link" href="https://github.com/The-Dorkknight/pi-hotspot-injector">GitHub</a> (Code → Download ZIP) and unzip it.</li>
+    <li>Double-click <code>PiInjector.desktop</code> (choose <i>Trust</i> if asked), or run <code>python3 pi_injector.py</code> in a terminal.</li>
+    <li>Read and accept the short disclaimer, then follow the tabs left to right.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Screenshots</h2>
+  <div class="shots">
+    <img src="images/write-image.png" alt="Write Image tab" loading="lazy">
+    <img src="images/hotspot-setup.png" alt="Hotspot Setup tab" loading="lazy">
+    <img src="images/clone-backup.png" alt="Clone and Backup tab" loading="lazy">
+    <img src="images/sanity-check-2.png" alt="The second sanity check" loading="lazy">
+  </div>
+</section>
+
+<section id="hardware" hidden>
+  <h2>In real life</h2>
+  <div class="shots" id="hw-shots"></div>
+</section>
+
+<section>
+  <div class="note"><b>Please read:</b> this tool writes directly to disks and can permanently erase a drive if you pick the wrong one. Back up anything important first. It comes <b>as is, with no warranty and no liability</b>.</div>
+</section>
+
+<footer>
+  Copyright Matthew Armstrong (<a href="https://github.com/The-Dorkknight">The-Dorkknight</a>). Licensed under the
+  <a href="https://polyformproject.org/licenses/noncommercial/1.0.0">PolyForm Noncommercial License 1.0.0</a>: free for personal, hobby, educational and charity use; commercial use needs permission.
+  This is source-available, not "open source", and not legal advice. Klipper, Moonraker, Mainsail and other software it installs keep their own licences.
+  Not affiliated with Raspberry Pi Ltd or the Klipper projects.
+</footer>
+</div>
+<script>
+(function(){
+  // Work out owner/repo from the address so links survive renames and forks.
+  var owner="The-Dorkknight", repo="pi-hotspot-injector";
+  try{
+    var m=location.hostname.match(/^(.+)\.github\.io$/i), p=location.pathname.split("/").filter(Boolean);
+    if(m&&p.length&&p[0].indexOf(".")<0){owner=m[1];repo=p[0];}
+  }catch(e){}
+  var base="https://github.com/"+owner+"/"+repo;
+  document.getElementById("repo").href=base;
+  document.getElementById("dl").href=base+"/releases/latest";
+  Array.prototype.forEach.call(document.querySelectorAll(".gh-link"),function(a){a.href=base;});
+  // Optional photos of real hardware: the section appears only if at least one loads.
+  ["unit.jpg","unit-2.jpg","real-feed.jpg"].forEach(function(n){
+    var img=new Image();
+    img.onload=function(){
+      img.alt="Photo: "+n.replace(/\..*/,"");img.style.height="auto";
+      document.getElementById("hw-shots").appendChild(img);
+      document.getElementById("hardware").hidden=false;
+    };
+    img.onerror=function(){};   // missing photo: nothing to remove, nothing shown
+    img.src="images/"+n;
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Pi Hotspot Injector
+Comment=Write Pi OS images and set up a Wi-Fi hotspot on Raspberry Pi SD cards
+Exec=sh -c 'cd "$(dirname "$1")" && exec python3 ./pi_injector.py' sh %k
+Icon=network-wireless
+Terminal=false
+Categories=Utility;System;

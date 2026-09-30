@@ -1,0 +1,45 @@
+name: Bug report
+description: Something didn't work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The log file is the most useful thing you can attach.
+        **Never post passwords.** The log doesn't contain them.
+  - type: input
+    id: version
+    attributes:
+      label: Tool version
+      description: Shown in the window title and on the Extras tab.
+      placeholder: "2.3.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: tab
+    attributes:
+      label: Where did it go wrong?
+      options: [Write Image, Build Klipper, Hotspot Setup, Clone & Backup, Extras, Start-up / launcher, Other]
+    validations:
+      required: true
+  - type: input
+    id: pc
+    attributes:
+      label: Your PC's Linux (and desktop)
+      placeholder: "Linux Mint 22 Cinnamon"
+  - type: input
+    id: pi
+    attributes:
+      label: Raspberry Pi model
+      placeholder: "Pi Zero W"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: Drag `~/pi_injector.log` in here as a file, or paste the last part of it.
