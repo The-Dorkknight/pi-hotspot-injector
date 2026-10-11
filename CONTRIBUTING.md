@@ -19,6 +19,7 @@ A tip if the log looks empty after moving it by USB stick: eject the stick prope
 - Safety comes first: anything that writes to a disk must go through the existing checks (removable, 8–32 GB, two confirmations, re-check before writing). Please don't loosen those.
 - Never log passwords.
 - Test with loop devices or a spare card, never a drive you care about.
+- Run the automated tests (they need no card and no root): `python3 -m unittest discover -s tests`.
 - Small, focused pull requests are easiest to review.
 
 ## Licence of contributions

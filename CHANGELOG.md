@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.2
+- Project artwork added: banner in the README, hero on the project page, and a social-preview image (`docs/images/social-preview.jpg`, 1280x640). No change to the program itself.
+
+## 2.4.1
+- KlipPlug option: a local copy (folder or zip next to the tool) is now put on the card without its `.git` folder, because a clone's settings can hold a login token.
+
+## 2.4.0
+- **Build Klipper** tab: new option **KlipPlug (plugin manager) - experimental**. Adds [KlipPlug](https://github.com/The-Dorkknight/klipplug) to the card as its own service (page on port 7130, next to Mainsail). Uses a `klipplug` folder or zip placed next to the tool if there is one, otherwise downloads it from GitHub. If it can't be installed the build still finishes, with a warning.
+- Tested with a stand-in for the card on a PC only; not yet built onto a real card or started on a real Pi.
+- First automated tests (`tests/`), covering this option.
+
 ## 2.3.0
 - New **Clone & Backup** tab: save a finished card as an image (optionally shrunk and compressed) and write copies onto other cards. Copies are grown to fill the card and can be made into a separate Pi (own hostname, machine ID and SSH keys).
 - Build and hotspot "done" messages now show the web address (`http://<hostname>.local` and the IP), and the Hotspot tab reminds you to use a different hotspot name per Pi and to "Forget network" on phones.

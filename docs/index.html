@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pi Hotspot Injector</title>
 <meta name="description" content="Point-and-click Linux tool that turns an SD card into a Klipper 3D-printer controller with its own Wi-Fi hotspot. Source-available · Non-commercial.">
+<meta property="og:title" content="Pi Hotspot Injector">
+<meta property="og:description" content="Point-and-click Linux tool that turns an SD card into a Klipper 3D-printer controller with its own Wi-Fi hotspot.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://The-Dorkknight.github.io/pi-hotspot-injector/images/social-preview.jpg">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="images/favicon-64.png">
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
 <style>
@@ -14,6 +19,7 @@
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:980px;margin:0 auto;padding:0 16px}
 header.hero{padding:48px 0 24px;text-align:center}
+header.hero img.art{display:block;width:100%;max-width:900px;height:auto;margin:0 auto 20px;border-radius:14px;border:1px solid var(--line)}
 header.hero img.icon{width:96px;height:96px;border-radius:22px}
 h1{font-size:2.1rem;margin:12px 0 4px}
 .tag{color:var(--muted);max-width:640px;margin:0 auto 18px}
@@ -41,6 +47,7 @@ a{color:var(--accent)}
 <body>
 <div class="wrap">
 <header class="hero">
+  <img class="art" src="images/artwork.jpg" alt="A vintage glass syringe filled with raspberries and Wi-Fi symbols on a workbench, labelled pi hotspot injector" width="1408" height="768">
   <img class="icon" src="images/icon-512.png" alt="Pi Hotspot Injector icon">
   <h1>Pi Hotspot Injector</h1>
   <p class="tag">Turn a blank SD card into a <b>Klipper 3D-printer controller</b> that broadcasts its own Wi-Fi hotspot, from your Linux PC, with no keyboard or screen on the Pi.</p>
@@ -54,7 +61,7 @@ a{color:var(--accent)}
   <h2>What it does</h2>
   <div class="grid">
     <div class="card"><h3>1. Write the image</h3><p>Downloads the official Raspberry Pi OS Lite, checks it, and writes it to an 8–32 GB SD card or USB stick, with two sanity checks and read-back verification.</p></div>
-    <div class="card"><h3>2. Build Klipper</h3><p>Installs Klipper, Moonraker, Mainsail (and Crowsnest for a webcam) onto the card, compiled so one card runs on every Pi, even the Pi Zero.</p></div>
+    <div class="card"><h3>2. Build Klipper</h3><p>Installs Klipper, Moonraker, Mainsail (and Crowsnest for a webcam, or the experimental KlipPlug plugin manager) onto the card, compiled so one card runs on every Pi, even the Pi Zero.</p></div>
     <div class="card"><h3>3. Hotspot</h3><p>Sets the Wi-Fi name, password and address, so the Pi makes its own network on first start. Ideal for a workshop with no Wi-Fi.</p></div>
     <div class="card"><h3>Clone &amp; Backup</h3><p>Save a finished card as an image and copy it to more cards. Each copy becomes a separate Pi with its own name and keys.</p></div>
     <div class="card"><h3>Dropout-proof downloads</h3><p>10 MB checkpoints and automatic resume, so flaky Wi-Fi doesn't cost you an hour.</p></div>

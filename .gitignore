@@ -17,3 +17,6 @@ __pycache__/
 venv/
 *.jks
 *.keystore
+
+# a local copy of KlipPlug placed next to the tool for the build option
+/*klipplug*/

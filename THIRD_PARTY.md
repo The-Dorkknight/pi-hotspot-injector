@@ -11,6 +11,7 @@ The tool does not include any of the software below. It downloads it, at your re
 | Moonraker | Klipper's web API | <https://github.com/Arksine/moonraker> |
 | Mainsail and mainsail-config | The web interface | <https://github.com/mainsail-crew/mainsail>, <https://github.com/mainsail-crew/mainsail-config> |
 | Crowsnest and ustreamer | Optional webcam streaming | <https://github.com/mainsail-crew/crowsnest>, <https://github.com/pikvm/ustreamer> |
+| KlipPlug | Optional plugin manager (same author as this tool, but a separate project under AGPL-3.0) | <https://github.com/The-Dorkknight/klipplug> |
 | QEMU (user-mode) | Runs ARM programs on your PC during the build | <https://www.qemu.org/> |
 | hostapd, dnsmasq, nginx, NetworkManager | Hotspot and web server on the Pi | Distributed as Debian packages with their own licences |
 

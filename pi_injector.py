@@ -20,8 +20,8 @@ What it can do:
      sold as 8-32 GB (+/-1 GB), and asks twice before erasing anything.
 
   2. Build a Klipper card: install Klipper + Moonraker + Mainsail (and
-     optionally Crowsnest) onto a clean Raspberry Pi OS Lite card from this
-     PC. On a 32-bit card everything is compiled for the oldest Pi (Pi 1 /
+     optionally Crowsnest and the KlipPlug plugin manager) onto a clean
+     Raspberry Pi OS Lite card from this PC. On a 32-bit card everything is compiled for the oldest Pi (Pi 1 /
      Zero / Zero W) inside a chroot that emulates its CPU, so the one card
      works in every Pi up to the Pi 5.
 
@@ -125,7 +125,7 @@ except ImportError:
     sys.exit(1)
 
 APP_TITLE = "Pi Hotspot Injector & Inquisitor"
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.4.2"
 COPYRIGHT_HOLDER = "Matthew Armstrong (https://github.com/The-Dorkknight)"
 PROJECT_URL = "https://github.com/The-Dorkknight/pi-hotspot-injector"
 
@@ -1988,6 +1988,9 @@ KLIPPER_REPOS = (
     ("mainsail-config", "https://github.com/mainsail-crew/mainsail-config.git"),
 )
 CROWSNEST_REPO = ("crowsnest", "https://github.com/mainsail-crew/crowsnest.git")
+# Optional: KlipPlug, a plugin manager for Klipper (same author, AGPL-3.0).
+KLIPPLUG_REPO = ("klipplug", "https://github.com/The-Dorkknight/klipplug.git")
+KLIPPLUG_PORT = 7130
 MAINSAIL_ZIP_URL = "https://github.com/mainsail-crew/mainsail/releases/latest/download/mainsail.zip"
 BUILD_MARKER = "etc/pi-hotspot-injector-build"
 BUILD_SCRIPT_PATH = "/root/.pi-injector-build.sh"
@@ -2498,6 +2501,14 @@ step_crowsnest_source() {
     test -x bin/ustreamer/ustreamer
 }
 
+# KlipPlug brings its own installer for systems that aren't running: it
+# writes the service, makes it start at boot, adds the Moonraker update
+# entry, then runs KlipPlug once on this card's Python to prove it starts.
+step_klipplug() {
+    cd "${H}/klipplug"
+    python3 tools/printer_install.py image --user "${U}" --port "${BUILD_KLIPPLUG_PORT:-7130}"
+}
+
 step_finish() {
     rm -f /etc/apt/apt.conf.d/80-pi-injector-retries
     # hostapd + dnsmasq are pre-installed for the hotspot (step 3 turns them
@@ -2518,6 +2529,7 @@ case "${1:-}" in
     mainsail) step_mainsail ;;
     crowsnest) step_crowsnest ;;
     crowsnest_source) step_crowsnest_source ;;
+    klipplug) step_klipplug ;;
     finish) step_finish ;;
     *) echo "unknown step: ${1:-}"; exit 2 ;;
 esac
@@ -2919,6 +2931,199 @@ def disable_desktop_at_boot(root_mp):
     return True
 
 
+def _is_klipplug_folder(path):
+    return (os.path.isfile(os.path.join(path, "tools", "printer_install.py"))
+            and os.path.isfile(os.path.join(path, "src", "klipplug", "__main__.py")))
+
+
+def find_local_klipplug(folder=None):
+    """A copy of KlipPlug placed next to this tool: ("folder", path) or
+    ("zip", path), newest first, or None. Lets a card be built with a copy
+    you already have (no download, or a version that isn't on GitHub yet)."""
+    folder = folder or os.path.dirname(os.path.abspath(__file__))
+    found = []
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return None
+    for name in names:
+        if "klipplug" not in name.lower():
+            continue
+        full = os.path.join(folder, name)
+        try:
+            if os.path.isdir(full) and _is_klipplug_folder(full):
+                found.append((os.path.getmtime(full), "folder", full))
+            elif os.path.isfile(full) and name.lower().endswith(".zip") and zipfile.is_zipfile(full):
+                found.append((os.path.getmtime(full), "zip", full))
+        except OSError:
+            continue
+    if not found:
+        return None
+    found.sort(reverse=True)
+    return found[0][1], found[0][2]
+
+
+def _skip_in_klipplug_copy(parts):
+    """Leave out caches, and .git: a clone's settings can hold a login token,
+    which has no business on an SD card that gets handed around."""
+    return any(part in (".git", "__pycache__", ".venv", "venv") for part in parts)
+
+
+def _extract_klipplug_zip(zip_path, dest):
+    """Unpack a KlipPlug zip into dest. Refuses anything that would land
+    outside dest, and links. The zip may hold the project in one top folder."""
+    staging = dest + ".unpack"
+    if os.path.exists(staging):
+        shutil.rmtree(staging)
+    os.makedirs(staging)
+    try:
+        base = os.path.realpath(staging)
+        with zipfile.ZipFile(zip_path) as zf:
+            total = sum(info.file_size for info in zf.infolist())
+            if total > 300 * 1024 * 1024:
+                raise InjectError("%s unpacks to %s - that isn't a KlipPlug package."
+                                  % (os.path.basename(zip_path), human_size(total)))
+            for info in zf.infolist():
+                name = info.filename.replace("\\", "/")
+                target = os.path.realpath(os.path.join(staging, name))
+                if name.startswith("/") or not (target + os.sep).startswith(base + os.sep):
+                    raise InjectError("%s contains a file path that points outside the package (%s) - "
+                                      "not using it." % (os.path.basename(zip_path), info.filename))
+                mode = (info.external_attr >> 16) & 0o177777
+                if stat.S_ISLNK(mode):
+                    continue  # never recreate links from a zip
+                if _skip_in_klipplug_copy(name.split("/")):
+                    continue
+                if name.endswith("/"):
+                    os.makedirs(target, exist_ok=True)
+                    continue
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with zf.open(info) as src, open(target, "wb") as out:
+                    shutil.copyfileobj(src, out)
+                os.chmod(target, 0o755 if mode & 0o111 else 0o644)
+        root = None
+        if _is_klipplug_folder(staging):
+            root = staging
+        else:
+            for name in sorted(os.listdir(staging)):
+                if _is_klipplug_folder(os.path.join(staging, name)):
+                    root = os.path.join(staging, name)
+                    break
+        if root is None:
+            raise InjectError("%s isn't a KlipPlug package (no tools/printer_install.py inside)."
+                              % os.path.basename(zip_path))
+        if os.path.exists(dest):
+            shutil.rmtree(dest)
+        shutil.move(root, dest)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def fetch_klipplug(dest, say, local_folder=None):
+    """Put KlipPlug's files at dest (inside the mounted card). Uses a copy
+    placed next to this tool if there is one, otherwise downloads it from
+    GitHub with this PC's git. Returns a short "where it came from" text;
+    raises InjectError if it can't be had."""
+    local = find_local_klipplug(local_folder)
+    if local:
+        kind, path = local
+        say("Copying KlipPlug from %s..." % os.path.basename(path))
+        if kind == "zip":
+            _extract_klipplug_zip(path, dest)
+        else:
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(path, dest, symlinks=False,
+                            ignore=lambda _dir, names: [n for n in names if _skip_in_klipplug_copy([n])
+                                                        or n.endswith(".pyc")])
+        return "the copy next to this tool (%s)" % os.path.basename(path)
+    name, url = KLIPPLUG_REPO
+    if shutil.which("git") is None:
+        raise InjectError("this PC has no 'git' to download it with (sudo apt install git), and there is no "
+                          "klipplug folder or zip next to this tool")
+    if _is_klipplug_folder(dest):
+        rc, _out = run_tracked(["git", "-c", "safe.directory=*", "-C", dest, "rev-parse", "--verify", "-q", "HEAD"],
+                               timeout=60)
+        if rc == 0:
+            return "GitHub (downloaded by an earlier run)"
+    say("Downloading KlipPlug...")
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")  # never sit waiting for a login
+    out = ""
+    for attempt in range(2):
+        if CANCEL.is_set():
+            raise CancelledError("Build cancelled.")
+        if os.path.exists(dest):
+            shutil.rmtree(dest)
+        try:
+            rc, out = run_tracked(["git", "clone", "--quiet", url, dest], timeout=900, env=env)
+        except subprocess.TimeoutExpired:
+            rc, out = 1, "timed out after 15 minutes"
+        if rc == 0 and _is_klipplug_folder(dest):
+            return "GitHub"
+        log.warning("git clone %s failed (attempt %d): %s", url, attempt + 1, out[-300:])
+    if os.path.exists(dest):
+        shutil.rmtree(dest, ignore_errors=True)
+    low = out.lower()
+    if "could not read username" in low or "repository not found" in low or "authentication failed" in low:
+        # what GitHub answers for a repository that doesn't exist or is private
+        raise InjectError("%s isn't available on GitHub (not published yet, or private). To use a copy you "
+                          "have, put the klipplug folder or its zip next to this tool and build again"
+                          % url[: -len(".git")])
+    raise InjectError("it couldn't be downloaded from %s (%s)" % (url, (out.strip().splitlines() or ["no details"])[-1][:200]))
+
+
+KLIPPLUG_CONF_BLOCK = re.compile(r"\n?# >>> KlipPlug \(managed by Install-On-Printer\.sh\) >>>.*?# <<< KlipPlug <<<\n?", re.S)
+
+
+def _remove_klipplug_service(root_mp, home_on_host):
+    """Take a half-installed KlipPlug off the card again, so a failed install
+    can't leave a service that restarts forever or a Moonraker update entry
+    for something that isn't there. KlipPlug's own files stay (harmless)."""
+    base = os.path.join(root_mp, "etc", "systemd", "system")
+    for path in (os.path.join(base, "multi-user.target.wants", "klipplug.service"),
+                 os.path.join(base, "klipplug.service")):
+        try:
+            if os.path.lexists(path):
+                os.remove(path)
+        except OSError:
+            log.exception("removing %s", path)
+    for conf in glob.glob(os.path.join(home_on_host, "*_data", "config", "moonraker.conf")):
+        try:
+            with open(conf, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            cleaned = KLIPPLUG_CONF_BLOCK.sub("\n", text)
+            if cleaned != text:
+                st = os.stat(conf)
+                with open(conf, "w", encoding="utf-8") as f:
+                    f.write(cleaned)
+                os.chown(conf, st.st_uid, st.st_gid)
+        except OSError:
+            log.exception("tidying %s", conf)
+
+
+def install_klipplug(root_mp, home_on_host, uid, gid, step, say, local_folder=None):
+    """Optional extra: add the KlipPlug plugin manager to the card being
+    built. Returns (installed, text). Never raises for a KlipPlug problem
+    (only for Cancel): the Klipper card is complete without it."""
+    dest = os.path.join(home_on_host, KLIPPLUG_REPO[0])
+    try:
+        source = fetch_klipplug(dest, say, local_folder)
+        _chown_tree(dest, uid, gid)
+        step("klipplug", "Setting up KlipPlug (plugin manager) and test-starting it...", timeout=1200)
+        unit = os.path.join(root_mp, "etc", "systemd", "system", "klipplug.service")
+        link = os.path.join(root_mp, "etc", "systemd", "system", "multi-user.target.wants", "klipplug.service")
+        if not (os.path.isfile(unit) and os.path.islink(link)):
+            raise InjectError("its installer finished, but its service isn't on the card")
+        return True, source
+    except CancelledError:
+        raise
+    except (InjectError, OSError) as exc:
+        log.warning("KlipPlug install failed: %s", exc)
+        _remove_klipplug_service(root_mp, home_on_host)
+        detail = str(exc).strip()
+        return False, detail[-600:]
+
+
 def _smoke_test_moonraker(chroot, user, home, say, wait=240):
     """Start Moonraker once inside the card (on the emulated CPU), bound to
     this PC's loopback only, and wait for its API to answer. This is the
@@ -2987,13 +3192,15 @@ def _smoke_test_moonraker(chroot, user, home, say, wait=240):
 
 
 def build_klipper_card(card, opts, say):
-    """Install Klipper + Moonraker + Mainsail (+ optional Crowsnest) onto a
-    clean Raspberry Pi OS Lite card. opts: username, password, hostname,
-    crowsnest (bool), fw_tools (bool). Returns a result dict."""
+    """Install Klipper + Moonraker + Mainsail (+ optional Crowsnest and
+    KlipPlug) onto a clean Raspberry Pi OS Lite card. opts: username,
+    password, hostname, crowsnest (bool), fw_tools (bool), klipplug (bool,
+    optional). Returns a result dict."""
     user, hostname = opts["username"], opts["hostname"]
+    want_klipplug = bool(opts.get("klipplug"))
     result = {"grew": False, "pi_zero_build": False, "crowsnest": opts["crowsnest"],
               "crowsnest_source_build": False, "repair": None, "smoke": (None, ""), "warnings": [],
-              "skipped": [], "desktop_disabled": False}
+              "skipped": [], "desktop_disabled": False, "klipplug": None, "klipplug_source": ""}
     ensure_writable_card(card)
     say("Checking this PC's internet connection...")
     check_internet()
@@ -3004,7 +3211,8 @@ def build_klipper_card(card, opts, say):
 
     result["grew"] = grow_root_partition(card, say)
 
-    need_mb = 2500 + (1200 if opts["fw_tools"] else 0) + (400 if opts["crowsnest"] else 0)
+    need_mb = 2500 + (1200 if opts["fw_tools"] else 0) + (400 if opts["crowsnest"] else 0) + \
+        (50 if want_klipplug else 0)
     with CardChroot(card, say, min_free_mb=need_mb, pi_zero_cpu="auto") as chroot:
         root_mp = chroot.root_mp
         result["pi_zero_build"] = chroot.pi_zero_cpu
@@ -3025,7 +3233,8 @@ def build_klipper_card(card, opts, say):
         os.makedirs(os.path.dirname(script_on_host), exist_ok=True)
         write_file(script_on_host, BUILD_SCRIPT, 0o700)
         env_args = ["BUILD_USER=" + user, "BUILD_HOSTNAME=" + hostname,
-                    "BUILD_FW_TOOLS=" + ("1" if opts["fw_tools"] else "0"), "BUILD_PW_FILE=" + BUILD_PW_PATH]
+                    "BUILD_FW_TOOLS=" + ("1" if opts["fw_tools"] else "0"), "BUILD_PW_FILE=" + BUILD_PW_PATH,
+                    "BUILD_KLIPPLUG_PORT=%d" % KLIPPLUG_PORT]
 
         def step(name, message, timeout=3600, extra=()):
             if CANCEL.is_set():
@@ -3091,6 +3300,17 @@ def build_klipper_card(card, opts, say):
                     result["warnings"].append("Crowsnest was installed, but no video streamer could be set up - "
                                               "webcams won't work until it's reinstalled on the Pi.")
 
+            if want_klipplug:
+                # After Mainsail (it needs moonraker.conf) and before the
+                # Moonraker test start, so that test also covers the update
+                # entry KlipPlug adds to moonraker.conf.
+                installed, detail = install_klipplug(root_mp, home_on_host, uid, gid, step, say)
+                result["klipplug"], result["klipplug_source"] = installed, detail if installed else ""
+                if not installed:
+                    result["warnings"].append(
+                        "KlipPlug (the plugin manager) wasn't installed: %s\nEverything else on the card is "
+                        "complete. You can add KlipPlug later on the Pi itself." % detail)
+
             if chroot.pi_zero_cpu:
                 result["repair"] = rebuild_incompatible_in_chroot(chroot, say)
 
@@ -3100,7 +3320,8 @@ def build_klipper_card(card, opts, say):
             step("finish", "Tidying up...")
             write_file(os.path.join(root_mp, BUILD_MARKER),
                        json.dumps({"version": APP_VERSION, "user": user, "hostname": hostname, "status": "complete",
-                                   "crowsnest": opts["crowsnest"], "pi_zero_build": chroot.pi_zero_cpu}) + "\n",
+                                   "crowsnest": opts["crowsnest"], "pi_zero_build": chroot.pi_zero_cpu,
+                                   "klipplug": bool(result["klipplug"])}) + "\n",
                        0o644)
             for unit in ("klipper.service", "moonraker.service", "nginx.service"):
                 enable_unit(root_mp, unit)
@@ -3115,10 +3336,10 @@ def build_klipper_card(card, opts, say):
                     pass
     rep = result.get("repair") or {}
     log.info(
-        "Build finished: pi_zero_build=%s smoke=%s desktop_disabled=%s crowsnest_source=%s skipped=%s "
+        "Build finished: pi_zero_build=%s smoke=%s desktop_disabled=%s crowsnest_source=%s klipplug=%s skipped=%s "
         "rebuilt=%s failed=%s still_crashing=%s remaining=%d warnings=%s",
         result["pi_zero_build"], result["smoke"], result["desktop_disabled"], result["crowsnest_source_build"],
-        result["skipped"], [x[1] for x in rep.get("rebuilt", [])], rep.get("failed", []),
+        result["klipplug"], result["skipped"], [x[1] for x in rep.get("rebuilt", [])], rep.get("failed", []),
         rep.get("still_crashing", []), len(rep.get("remaining", [])), result["warnings"],
     )
     return result
@@ -5154,7 +5375,7 @@ class PiInjectorApp(tk.Tk):
         ).pack(anchor="w", fill="x")
         self._hint(
             f,
-            "Installs Klipper, Moonraker and Mainsail (and optionally Crowsnest) onto the card from this "
+            "Installs Klipper, Moonraker and Mainsail (and optionally Crowsnest and KlipPlug) onto the card from this "
             "PC - clean, straight from each project, no MainsailOS extras.\n\n"
             "Use Raspberry Pi OS Lite (32-bit): the card then works in EVERY Pi - Pi 1, Zero, Zero W, "
             "Zero 2 W, 2, 3, 4, 400 and 5 - because everything is compiled for the oldest one. "
@@ -5205,6 +5426,15 @@ class PiInjectorApp(tk.Tk):
         ).pack(anchor="w")
         self._hint(opts, "      Streams a USB or Pi camera to Mainsail. A Pi Zero / Zero W can just about "
                          "manage one low-resolution USB webcam.")
+        self.build_klipplug_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            opts, text="KlipPlug (plugin manager) - experimental", variable=self.build_klipplug_var,
+            font=FONT_LABEL,
+        ).pack(anchor="w")
+        self._hint(opts, "      Adds a plugin page next to Mainsail (port %d) that can run many OctoPrint "
+                         "plugins on Klipper. Work in progress: not yet tried on a real printer. Downloaded "
+                         "from GitHub, or taken from a klipplug folder or zip placed next to this tool."
+                         % KLIPPLUG_PORT)
 
         self.build_btn = tk.Button(
             footer, text="Build Klipper Card", font=FONT_BTN, bg="#2c7a7b", fg="white", height=2, width=30,
@@ -5222,6 +5452,7 @@ class PiInjectorApp(tk.Tk):
             "hostname": self.build_host_entry.get().strip(),
             "fw_tools": self.build_fw_var.get(),
             "crowsnest": self.build_crowsnest_var.get(),
+            "klipplug": self.build_klipplug_var.get(),
         }
         err = validate_build_inputs(opts["username"], opts["password"], opts["hostname"])
         if err:
@@ -5230,7 +5461,8 @@ class PiInjectorApp(tk.Tk):
         card = self._select_single_card()
         if card is None:
             return
-        extras = [name for name, on in (("firmware build tools", opts["fw_tools"]), ("Crowsnest", opts["crowsnest"])) if on]
+        extras = [name for name, on in (("firmware build tools", opts["fw_tools"]), ("Crowsnest", opts["crowsnest"]),
+                                        ("KlipPlug", opts["klipplug"])) if on]
         if not mb_yesno(
             "Build Klipper card?",
             "Install Klipper, Moonraker and Mainsail%s onto:\n\n      %s\n\n"
@@ -5242,8 +5474,8 @@ class PiInjectorApp(tk.Tk):
             % ((" + " + " + ".join(extras)) if extras else "", card["desc"], opts["username"], opts["hostname"]),
         ):
             return
-        log.info("Building Klipper card on %s (user %s, host %s, fw=%s, crowsnest=%s)", card["desc"],
-                 opts["username"], opts["hostname"], opts["fw_tools"], opts["crowsnest"])
+        log.info("Building Klipper card on %s (user %s, host %s, fw=%s, crowsnest=%s, klipplug=%s)", card["desc"],
+                 opts["username"], opts["hostname"], opts["fw_tools"], opts["crowsnest"], opts["klipplug"])
 
         def on_success(result):
             self._finish_ok("Klipper card built on %s." % card["desc"])
@@ -5263,6 +5495,10 @@ class PiInjectorApp(tk.Tk):
                 lines.append("Rebuilt for older Pis: " + ", ".join(n for _v, n, _ver, _f in rep["rebuilt"]))
             if result["crowsnest_source_build"]:
                 lines.append("Crowsnest's video streamer was compiled on the card.")
+            if result.get("klipplug"):
+                lines.append("KlipPlug (plugin manager, experimental) is installed from %s and was test-started "
+                             "on the card. Its page once the Pi is running: http://%s.local:%d"
+                             % (result["klipplug_source"], opts["hostname"], KLIPPLUG_PORT))
             if result.get("desktop_disabled"):
                 lines.append("This was Raspberry Pi OS *with desktop*: it now starts without the desktop, to "
                              "leave memory for Klipper (switch it back on any time with 'sudo raspi-config' "

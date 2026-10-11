@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/artwork.jpg" alt="A vintage glass syringe filled with raspberries and Wi-Fi symbols on a workbench, labelled pi hotspot injector" width="760"></p>
+
 # Pi Hotspot Injector
 
 <img src="docs/images/icon-512.png" alt="Pi Hotspot Injector icon" width="96" align="right">
@@ -14,7 +16,7 @@ A point-and-click Linux tool that turns a blank SD card into a **Klipper 3D-prin
 It does everything from your Linux PC, with no need to boot the Pi first or plug in a keyboard and screen:
 
 1. **Write the OS image** (Raspberry Pi OS Lite, or MainsailOS) to an SD card or USB stick, straight from the downloaded `.img.xz` / `.zip`.
-2. **Build Klipper**: install Klipper, Moonraker and Mainsail (plus Crowsnest if you want a webcam) onto a clean Raspberry Pi OS Lite card. Everything comes clean and straight from each project, compiled so it runs on every Pi.
+2. **Build Klipper**: install Klipper, Moonraker and Mainsail (plus Crowsnest if you want a webcam, and the experimental [KlipPlug](https://github.com/The-Dorkknight/klipplug) plugin manager if you want plugins) onto a clean Raspberry Pi OS Lite card. Everything comes clean and straight from each project, compiled so it runs on every Pi.
 3. **Set up the hotspot**: Wi-Fi name, password, country and IP address.
 4. **Clone & Backup** (optional): save a finished card as an image file, and copy it onto more cards, each one becoming a separate Pi with its own name.
 5. **Extras**: a Pi Zero / Pi 1 compatibility check-and-fix for existing cards, the **Card Inquisitor** boot diagnostics, and a standalone hostapd + dnsmasq installer.
@@ -45,6 +47,7 @@ This tool writes directly to disks. Used on the wrong drive, it **permanently er
 ## More documentation
 
 - [HOW_IT_WORKS.md](HOW_IT_WORKS.md): what the tool does to your card and PC, step by step
+- [RESEARCH_NOTES.md](RESEARCH_NOTES.md): what was found out along the way, and what is and isn't tested on real hardware
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version
 - [THIRD_PARTY.md](THIRD_PARTY.md): the software it installs, and their licences
 - [Project page](https://The-Dorkknight.github.io/pi-hotspot-injector/) (GitHub Pages)
@@ -103,16 +106,25 @@ On startup, a short disclaimer appears that you must accept before you can use t
 ### 2. Build Klipper
 1. Leave the freshly written card plugged in. **Don't boot it in a Pi first**, because the build needs a never-started card.
 2. Choose a login user (default `pi`), a password (**write it down**) and a hostname (give each printer its own).
-3. Options: **Printer firmware build tools** (on by default; lets you compile and flash your printer board's firmware on the Pi, as most guides do; uses about 1 GB) and **Crowsnest** (webcam support).
+3. Options: **Printer firmware build tools** (on by default; lets you compile and flash your printer board's firmware on the Pi, as most guides do; uses about 1 GB), **Crowsnest** (webcam support) and **KlipPlug** (plugin manager, experimental; see below).
 4. **Build Klipper Card**. It takes about 1–2 hours and needs this PC online, so keep the PC awake. What it does:
    - enlarges the card's system partition (as the Pi would on its first start);
    - sets up the user, SSH and hostname;
    - installs Klipper, Moonraker, Mainsail, nginx and (optionally) Crowsnest, straight from each project;
    - on a 32-bit card, compiles everything for the oldest Pi and checks every compiled file;
+   - if you ticked KlipPlug, installs it and runs it once on the card's own Python;
    - finally **test-starts Moonraker** on an emulated Pi to prove it works.
 5. Cancel is safe. A stopped or failed build can simply be started again, and it carries on where it left off.
 
 After the first start, Mainsail will show a Klipper error until you put your printer's configuration into `printer.cfg`. Klipper's example configs are in `~/klipper/config/`.
+
+#### The KlipPlug option (experimental)
+[KlipPlug](https://github.com/The-Dorkknight/klipplug) is a separate project by the same author: a plugin manager for Klipper that can run many OctoPrint plugins. Ticking the box adds it to the card as its own service; its page is at `http://<hostname>.local:7130` (on the hotspot: `http://192.168.50.1:7130`), next to Mainsail, which is not changed.
+
+- **Where it comes from:** if a `klipplug` folder or a `klipplug….zip` sits next to `pi_injector.py`, that copy is used. Otherwise it is downloaded from GitHub. Use the local copy for a build without that download, or for a version that isn't on GitHub. A local copy goes onto the card without its `.git` folder (a clone's settings can hold a login token), so Mainsail's update panel won't list it; a copy downloaded from GitHub is listed there.
+- **If it can't be installed** (no download, a broken zip), the build carries on and finishes without it, and tells you so at the end. The Klipper card is complete either way.
+- **What has and hasn't been tried:** this option was tested with a stand-in for the card on a PC (the same install step, run in a chroot, then the installed service started against Klipper and Moonraker). It has **not** been built onto a real SD card or started on a real Pi yet. KlipPlug itself is work in progress and has not been run on a physical printer. A Pi Zero W has little memory (512 MB); how well KlipPlug runs there beside Klipper is not measured.
+- **Licence:** KlipPlug is under AGPL-3.0, not this tool's licence. See [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ### 3. Hotspot Setup
 1. Leave the card plugged in (or insert a card flashed with another tool).
